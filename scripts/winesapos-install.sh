@@ -438,8 +438,32 @@ echo "vm.swappiness=10" >> ${WINESAPOS_INSTALL_DIR}/etc/sysctl.d/00-winesapos.co
 echo "Minimizing writes to the disk compelete."
 
 echo "Setting up the desktop environment..."
+# Install enhanced SteamOS Mesa packages first.
+## There is a circular dependency on mesa to build mesa so we need to manually confirm to
+## replace the conflicting 'mesa' package with 'mesa-steamos' once it has been built.
+## https://github.com/LukeShortCloud/winesapOS/issues/309
+arch-chroot ${WINESAPOS_INSTALL_DIR} ${CMD_PACMAN_INSTALL} expect
+## These are responses to:
+### ==> Diffs to show?\r==> [N]one [A]ll [Ab]ort [I]nstalled [No]tInstalled or (1 2 3, 1-3, ^4)\r
+### ==> Import? [Y/n]
+### :: Proceed with installation? [Y/n]
+### :: mesa-steamos and mesa are in conflict (mesa-libgl). Remove mesa? [y/N]
+### :: Proceed with installation? [Y/n]
+### :: lib32-mesa-steamos and lib32-mesa are in conflict (lib32-mesa-libgl). Remove lib32-mesa? [y/N]
+### :: Proceed with installation? [Y/n]
+arch-chroot ${WINESAPOS_INSTALL_DIR} sudo -u winesap expect -c "
+  spawn yay -S --removemake mesa-steamos lib32-mesa-steamos
+  set timeout -1
+  expect -re \"\\\^4\\\)\r\"; sleep 2; send -- \"N\r\"
+  expect -re \".*PGP keys need importing.*\"; sleep 2; send -- \"Y\r\"
+  expect -re \".*Proceed with install.*\"; sleep 2; send -- \"Y\r\"
+  expect -re \".*are in conflict.*Remove.*\\\?\"; sleep 2; send -- \"Y\r\"
+  expect -re \".*Proceed with install.*\"; sleep 2; send -- \"Y\r\"
+  expect -re \".*are in conflict.*Remove.*\\\?\"; sleep 2; send -- \"Y\r\"
+  expect -re \".*Proceed with install.*\"; sleep 2; send -- \"Y\r\"
+  expect eof"
 # Install Xorg.
-arch-chroot ${WINESAPOS_INSTALL_DIR} ${CMD_PACMAN_INSTALL} xorg-server lib32-mesa mesa xorg-server xorg-xinit xterm xf86-input-libinput xf86-video-amdgpu xf86-video-intel xf86-video-nouveau
+arch-chroot ${WINESAPOS_INSTALL_DIR} ${CMD_PACMAN_INSTALL} xorg-server xorg-server xorg-xinit xterm xf86-input-libinput xf86-video-amdgpu xf86-video-intel xf86-video-nouveau
 # Install Light Display Manager.
 arch-chroot ${WINESAPOS_INSTALL_DIR} ${CMD_PACMAN_INSTALL} lightdm lightdm-gtk-greeter
 if [[ "${WINESAPOS_DISTRO}" == "manjaro" ]]; then
